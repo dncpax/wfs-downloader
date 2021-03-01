@@ -3,7 +3,7 @@ WFS Downloader
 
 Downloads GML files from a set of WFS service in a pseudo-paginated way using bounding boxes and combine them again to one file.
 This is a fork, heavily modified. It uses GDAL/OGR to merge files instead of using xml. This allows to avoid duplicates by creating a geopackage with a unique index on column gml_id or any unique attribute indicated in the .yml. This effectively causes an error when inserting the same gml_id. By ignoring these errors it continues to merge features that are not duplicates. 
-Many other changes are minor. WFS 1.1.0 and 1.0.0 use numberOfFeatures instead of numberReturned/numberMatched. Also, in WFS2.0.0 when working with WGS84 (EPSG 4326) there's an inversion of axis that is now handled properly (I hope).
+Many other changes are minor. WFS 1.1.0 and 1.0.0 use numberOfFeatures instead of numberReturned/numberMatched. Also, in WFS2.0.0 when working with WGS84 (EPSG 4326) there's an inversion of axis that is now handled properly (I hope). Also, if a files exists it is not donwloaded again - this is to help in case the server starts erroring out so you can run the script multiple times and incrementally download all files. If you want to redownload a file you must delete it and rerun the script.
 A few new configuration keys: version (for wfs), interval (to prevent service denial, imposes a pause between requests), uniqueid_field (to prevent duplicates).
 Technically it merges files in memory, and in the end exports to file, always to a GeoPackage. If you need any other format you can convert by using GDAL/OGR or even easier by using QGIS.
 
