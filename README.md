@@ -2,6 +2,7 @@ WFS Downloader
 ==============
 
 Downloads GML files from a set of WFS service in a pseudo-paginated way using bounding boxes and combine them again to one file.
+This is a fork, heavily modified. It uses GDAL/OGR to merge files instead of using xml.
 
 Install
 -------
