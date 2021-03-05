@@ -22,6 +22,7 @@ Technically it merges files in memory, and in the end exports to file, always to
 Install
 -------
 
+You need to install GDAL binaries on your system first.
 ```
 pip install wfs-downloader
 ```
