@@ -2,7 +2,19 @@ WFS Downloader
 ==============
 
 Downloads GML files from a set of WFS service in a pseudo-paginated way using bounding boxes and combine them again to one file.
-This is a fork, heavily modified. It uses GDAL/OGR to merge files instead of using xml. This allows to avoid duplicates by creating a geopackage with a unique index on column gml_id or any unique attribute indicated in the .yml. This effectively causes an error when inserting the same gml_id. By ignoring these errors it continues to merge features that are not duplicates. 
+This is a fork, heavily modified. It uses GDAL/OGR to merge files instead of using xml. This allows to avoid duplicates by creating a geopackage with a unique index on a column defined in the .yml.
+A few details:
+ - merging is done in memory, using ogr/gdal, it's recommended to use 64bit python and gdal;
+ - spatial index is disabled to make it faster, and created in a final step;
+ - duplicates are now removed after merging, using sql and the unique field configured by the user - works well and is fast;
+ - finally the in-memory geopackage is exported to a disk geopackage and a spatial index is created by sql;
+Things look a lot faster in my tests:
+- merge in disk: Data downloaded and processed in 7594.9134 seconds
+- merge in memory: Data downloaded and processed in 2832.862000 seconds
+- by removing duplicates and no spatial index: Data downloaded and processed in 2013.296000 seconds
+
+Now because of in-memory merging it is recommended to use 64bit python and gdal.
+
 Many other changes are minor. WFS 1.1.0 and 1.0.0 use numberOfFeatures instead of numberReturned/numberMatched. Also, in WFS2.0.0 when working with WGS84 (EPSG 4326) there's an inversion of axis that is now handled properly (I hope). Also, if a files exists it is not donwloaded again - this is to help in case the server starts erroring out so you can run the script multiple times and incrementally download all files. If you want to redownload a file you must delete it and rerun the script.
 A few new configuration keys: version (for wfs), interval (to prevent service denial, imposes a pause between requests), uniqueid_field (to prevent duplicates).
 Technically it merges files in memory, and in the end exports to file, always to a GeoPackage. If you need any other format you can convert by using GDAL/OGR or even easier by using QGIS.
