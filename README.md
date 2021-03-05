@@ -60,7 +60,7 @@ where:
 * `size` is the extend of a single request (or page),
 * `interval' is the delay in second between requests to avoid errors from server like closed connection,
 * `outputfile` is the name of the resulting GML file,
-* `uniqueid_field' is the attribute that is unique identifier so we can prevent duplicates from being merged (important for polygon and line layers),
+* `uniqueid_field` is the attribute that is unique identifier so we can prevent duplicates from being merged (important for polygon and line layers),
 * `projection` is the used projection, and
 * `tmpfile` is the path to the directory to store temporary files for each request.
 
