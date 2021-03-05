@@ -14,7 +14,7 @@ url = 'https://github.com/codeforberlin/wfs-downloader'
 requirements = [
     'lxml>=3.7.3',
     'PyYAML',
-    'py-gdal'
+    'GDAL'
 ]
 
 console_scripts = [
