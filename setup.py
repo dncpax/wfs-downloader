@@ -12,8 +12,9 @@ email = 'jochenklar@gmail.com'
 url = 'https://github.com/codeforberlin/wfs-downloader'
 
 requirements = [
-    'lxml==3.7.3',
-    'PyYAML'
+    'lxml>=3.7.3',
+    'PyYAML',
+    'py-gdal'
 ]
 
 console_scripts = [
