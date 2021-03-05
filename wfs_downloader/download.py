@@ -12,6 +12,7 @@ try:
     # py2
     from urllib import urlretrieve
     import urllib
+    import time
 except ImportError:
     # py3
     from urllib.request import urlretrieve
@@ -22,7 +23,10 @@ from lxml import etree
 
 def main():
 
-    tic = time.perf_counter()
+    if (sys.version_info.major >2):
+      tic = time.perf_counter()
+    else:
+      tic = time.time()
 
     parser = argparse.ArgumentParser(usage='Downloads GML files from a set of WFS service in a pseudo-paginated way using bounding boxes and combine them again to one file. The WFS services are specified in settings.py.')
     parser.add_argument('config', help='config file')
@@ -40,8 +44,11 @@ def main():
     if not args.no_combine:
         combine_files(config)
         
-    toc = time.perf_counter()
-    print(f"Data downloaded and processed in {toc - tic:0.4f} seconds")
+    if (sys.version_info.major >2):
+      toc = time.perf_counter()
+    else:
+      toc = time.time()
+    print("Data downloaded and processed in %f seconds" % (toc-tic))
 
 
 def download_files(config):
@@ -95,12 +102,12 @@ def download_files(config):
             #we should manage errors of connection closed by the server with a cooldown timer and some retries
             try:
                 urlretrieve(url, filename)
-            except ConnectionResetError:
+            except Exception as e:
                 print ("Connection reset by server. Cooling down and retrying... You should try a smaller size and/or a bigger interval.")
                 time.sleep(10)
                 try:
                     urlretrieve(url, filename)
-                except ConnectionResetError:
+                except Exception as e1:
                     print ("Second failure... quiting downloading. Will merge existing files.")
                     os.remove(filename)
                     return
@@ -122,7 +129,7 @@ def download_files(config):
 #                os.remove(filename)
             #if there's an interval configured apply it now
             if (config['interval']>0): 
-                print ("Interval of %s defined. Waiting..." % config['interval'])
+                print ("Interval of %ss defined. Waiting..." % config['interval'])
                 time.sleep(config['interval'])
 
 
@@ -179,9 +186,22 @@ def combine_files(config):
     
     #write with ogr: write to memory, merge, and finally export to file
     gdaloutputfile = config['outputfile'].replace(extension,".gpkg")
-    print("A exportar: %s" % gdaloutputfile)
+    print("Exporting: %s" % gdaloutputfile)
     gdal.UseExceptions()
     gdalDriverName = 'GPKG'
+    
+    #teste de remocao de duplicados
+    #geopkg = gdal.OpenEx(gdaloutputfile, gdal.OF_UPDATE)
+    #geopkg.ExecuteSQL("pragma wal_checkpoint(TRUNCATE)")
+    #quit()
+    #layer = geopkg.GetLayer(0)
+    #nome = geopkg.GetLayer(0).GetName()
+    #layer.ResetReading();
+    #print("delete from %s where rowid not in (select min(rowid) from %s group by %s);" % (nome, nome, config['uniqueid_field']))
+    #geopkg.ExecuteSQL("delete from %s where rowid not in (select min(rowid) from %s group by %s);" % (nome, nome, config['uniqueid_field']))
+    #del geopkg
+    #quit()
+    
     srcDS = gdal.OpenEx(first_filename)
     srcLayer = srcDS.GetLayer(0)
     #spatialRef = srcDS.GetSpatialRef().exportToWkt()
@@ -191,11 +211,17 @@ def combine_files(config):
         '-t_srs', 'EPSG:4326',
         '-update',
         '-append',
-        '-skipfailures'
+        '-skipfailures',
+        '-lco', 'SPATIAL_INDEX=NO'
     ])
     driver = ogr.GetDriverByName(gdalDriverName)
     if os.path.exists(gdaloutputfile):
-         driver.DeleteDataSource(gdaloutputfile)
+         print("Deleting existing file: %s" % gdaloutputfile)
+         deleted = driver.DeleteDataSource(gdaloutputfile)
+         if(deleted != 0):
+            print("impossible to delete... quiting.")
+            quit()
+         
     #ds = gdal.VectorTranslate(gdaloutputfile, srcDS=first_filename, options=ogrOptions)
     #gdalName=ds.GetLayer(0).GetName()
     outmemfile = os.path.join('/vsimem', os.path.basename(gdaloutputfile))
@@ -203,21 +229,14 @@ def combine_files(config):
     ds = gdal.VectorTranslate(outmemfile, srcDS=first_filename, options=ogrOptions)
     
     #try to optimize geopackage performance
-    memLayer = ds.GetLayer(0)
-    memLayerName = memLayer.GetName()
+    #memLayer = ds.GetLayer(0)
+    #memLayerName = memLayer.GetName()
     #ds.ExecuteSQL('CREATE UNIQUE INDEX IF NOT EXISTS gmlid_idx ON "%s" (%s);' % (outmemfile, config['uniqueid_field']))
-    
-    #driver_mem = ogr.GetDriverByName('MEMORY')
-    #source_mem = driver_mem.CreateDataSource('memData')
-    #open the memory datasource with write access
-    #tmp_mem = driver_mem.Open('memData',update=True)
-    #copy a layer to memory
-    #gdalName=srcDS.GetLayer(0).GetName()
-    #layer_mem = source_mem.CopyLayer(srcLayer,gdalName,['OVERWRITE=YES'])
     
     #add a unique index to avoid duplicates if it is configured
     if (config['uniqueid_field'] != 'None'):
-      ds.ExecuteSQL('CREATE UNIQUE INDEX IF NOT EXISTS gmlid_idx ON "%s" (%s);' % (memLayerName, config['uniqueid_field']))
+      #ds.ExecuteSQL('CREATE UNIQUE INDEX IF NOT EXISTS gmlid_idx ON "%s" (%s);' % (memLayerName, config['uniqueid_field']))
+      pass
     #Dereference and close dataset, then reopen.
     del ds
     
@@ -233,18 +252,18 @@ def combine_files(config):
 
                 if number_matched is not False:
                     number_matched += int(root.get('numberMatched'))
-                    print("novos elementos=%s" % root.get('numberMatched'))
-                    print ("number_matched=%i" % number_matched)
+                    print("elements in file=%s" % root.get('numberMatched'))
+                    print ("elements total=%i" % number_matched)
 
                 if number_returned is not False:
                     number_returned += int(root.get('numberReturned'))
-                    print("novos elementos=%s" % root.get('numberMatched'))
-                    print ("number_returned=%i" % number_returned)
+                    print("elements in file=%s" % root.get('numberMatched'))
+                    print ("elements total=%i" % number_returned)
                     
                 if number_offeatures is not False:
                     number_offeatures += int(root.get('numberOfFeatures'))
-                    print("novos elementos=%s" % root.get('numberOfFeatures'))
-                    print ("number_offeatures=%i" % number_offeatures)
+                    print("elements in file=%s" % root.get('numberOfFeatures'))
+                    print ("elements total=%i" % number_offeatures)
 
                 #avoid errors in merging if 0 elements
                 if(number_matched==0 and number_returned==0 and number_offeatures==0):
@@ -257,6 +276,10 @@ def combine_files(config):
                 #Dereference and close dataset, then reopen.
                 #del ds
                 ds = gdal.VectorTranslate(outmemfile, srcDS=abs_filename, options=ogrOptions)
+                #remove duplicates
+                #if (config['uniqueid_field'] != 'None'):
+                #  ds.ExecuteSQL('CREATE UNIQUE INDEX IF NOT EXISTS gmlid_idx ON "%s" (%s);' % (memLayerName, config['uniqueid_field']))
+
                 #Dereference and close dataset, then reopen.
                 del ds
 
@@ -295,10 +318,41 @@ def combine_files(config):
     #    f.write(etree.tostring(first_xml))
     #    f.close()
     
+    #remove duplicates before exporting to disk
+    #teste de remocao de duplicados
+    memgeopkg = gdal.OpenEx(outmemfile, gdal.OF_UPDATE)
+    #geopkg.ExecuteSQL("pragma wal_checkpoint(TRUNCATE)")
+    #quit()
+    if (config['uniqueid_field'] is not None):
+      layer = memgeopkg.GetLayer(0)
+      nome = memgeopkg.GetLayer(0).GetName()
+      print("Deleting duplicates based on unique fields: %s" % config['uniqueid_field'])
+      memgeopkg.ExecuteSQL('delete from "%s" where rowid not in (select min(rowid) from "%s" group by "%s");' % (nome, nome, config['uniqueid_field']))
+      del memgeopkg
+    
     #write from memory to disk
-    print("Exporting from memory to disk: %s." % gdaloutputfile)
+    #print("Exporting from memory to disk: %s." % gdaloutputfile)
     #we can maybe optimize write performance using PRAGMA directives from SQLite
+    #geopkg = driver.CreateDataSource(gdaloutputfile)
+    #geopkg.ExecuteSQL("PRAGMA main.page_size = 4096;");
+    #geopkg.ExecuteSQL("PRAGMA main.cache_size=10000;");
+    #geopkg.ExecuteSQL("PRAGMA main.locking_mode=EXCLUSIVE;");
+    #geopkg.ExecuteSQL("PRAGMA main.synchronous=NORMAL;");
+    #geopkg.ExecuteSQL("PRAGMA main.journal_mode=WAL;");
+    #geopkg.ExecuteSQL("PRAGMA main.cache_size=5000;");
+    
+    print("Configuring gdal to optimize GeoPackage write performance...")
+    gdal.SetConfigOption('OGR_SQLITE_PRAGMA', 'main.page_size=4096,main.cache_size=10000,main.cache_size=5000')
+    print("Writing to disk... %s" % gdaloutputfile)
     ds = gdal.VectorTranslate(gdaloutputfile, srcDS=outmemfile, options=ogrOptions)
+    print("Creating spatial index...")
+    layer = ds.GetLayer(0)
+    layerName = layer.GetName()
+    print ("layerName: %s" % layerName)
+    geomFieldName = layer.GetLayerDefn().GetGeomFieldDefn(0).GetName()
+    print("geom name: %s" % geomFieldName)
+    ds.ExecuteSQL("SELECT CreateSpatialIndex('%s','%s')" % (layerName, geomFieldName));
+    del ds
 
 def arange(start, stop, step):
     current = start
