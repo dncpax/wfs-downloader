@@ -2,7 +2,7 @@ WFS Downloader
 ==============
 
 Downloads GML files from a set of WFS service in a pseudo-paginated way using bounding boxes and combine them again to one file.
-\n**This is a fork, heavily modified.** It uses GDAL/OGR to merge files instead of using xml. This allows to avoid duplicates by creating a geopackage with a unique index on a column defined in the .yml.
+\**This is a fork, heavily modified.** It uses GDAL/OGR to merge files instead of using xml. This allows to avoid duplicates by creating a geopackage with a unique index on a column defined in the .yml.
 A few details:
  - merging is done in memory, using ogr/gdal, it's recommended to use 64bit python and gdal;
  - spatial index is disabled to make it faster, and created in a final step;
